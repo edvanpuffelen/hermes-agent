@@ -149,7 +149,17 @@ def _summarize_user_message(user_message: str) -> str:
         described = describe_skill_invocation(user_message)
     except Exception:
         logger.debug("Skill-scaffolding summary failed; titling raw", exc_info=True)
-    return strip_control_wrappers(user_message if described is None else described)
+    return _strip_platform_trigger_prefix(strip_control_wrappers(user_message if described is None else described))
+
+
+# Lokale patch (Mac Mini, 6 sep 2026): het Discord-adapterprefix "[Triggering message id: `...` — use as
+# `message_id` ...]" (gateway/run_inbound.py) is geen control wrapper en kwam daardoor letterlijk in afgeleide
+# titels terecht. Strip het hier zodat zowel de derived als de LLM-titel over de eigenlijke tekst gaan.
+_PLATFORM_TRIGGER_RE = re.compile(r"^\s*\[Triggering message id:[^\]]*\]\s*", re.IGNORECASE)
+
+
+def _strip_platform_trigger_prefix(text: str) -> str:
+    return _PLATFORM_TRIGGER_RE.sub("", text or "", count=1).strip()
 
 
 def is_titleable_user_message(user_message: str) -> bool:
